@@ -203,6 +203,7 @@ test/smtlib/out
 test/out
 .docker_venv
 notebooks/*png
+notebooks/nliu/results/*
 funman-api-client
 .vscode
 www/.nojekyll
