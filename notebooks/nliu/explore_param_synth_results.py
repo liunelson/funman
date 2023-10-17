@@ -43,72 +43,90 @@ with open('../../resources/amr/petrinet/amr-examples/sir_request1.json', 'r') as
     request = json.load(f)
 
 # %%
-# request = {
-#     "query": {
-#         "queries": [
-#             {
-#                 "variable": "I", 
-#                 "lb": 0.0,
-#             },
-#             {
-#                 "variable": "I", 
-#                 "ub": 0.3
-#             }
-#         ]
-#     }
-#     ,
-#     "parameters": [
-#         {
-#             "name": "beta", 
-#             "lb": 0.01,
-#             "ub": 1.0
-#         },
-#         {
-#             "name": "gamma",
-#             "lb": 0.01,
-#             "ub": 1.0
-#         },
-#         {
-#             "name": "S0",
-#             "lb": 0.9,
-#             "ub": 1.0
-#         },
-#         {
-#             "name": "I0",
-#             "lb": 0.0,
-#             "ub": 0.1
-#         },
-#         {
-#             "name": "R0",
-#             "lb": 0.0,
-#             "ub": 0.1
-#         }
-#     ],
-#     "structure_parameters": [
-#         {
-#             "name": "step_size",
-#             "lb": 1.0,
-#             "ub": 1.0,
-#             "label": "all"
-#         },
-#         {
-#             "name": "num_steps",
-#             "lb": 10.0,
-#             "ub": 10.0,
-#             "label": "all"
-#         }
-#     ],
-#     "config": {
-#         "solver": "dreal",
-#         "dreal_mcts": True,
-#         "tolerance": 1e-8
-#     }
-# }
+request = {
+    "query": {
+        "queries": [
+            {
+                "variable": "I", 
+                "lb": 0.0,
+            },
+            {
+                "variable": "I", 
+                "ub": 0.05
+            }
+        ]
+    }
+    ,
+    "parameters": [
+        {
+            "name": "beta", 
+            "lb": 0.01,
+            "ub": 1.5
+        },
+        {
+            "name": "gamma",
+            "lb": 0.01,
+            "ub": 1.5
+        },
+        {
+            "name": "S0",
+            "lb": 0.95,
+            "ub": 1.0
+        },
+        {
+            "name": "I0",
+            "lb": 0.1,
+            "ub": 0.05
+        },
+        {
+            "name": "R0",
+            "lb": 0.0,
+            "ub": 0.05
+        }
+    ],
+    "structure_parameters": [
+        {
+            "name": "step_size",
+            "lb": 1.0,
+            "ub": 1.0,
+            "label": "all"
+        },
+        {
+            "name": "num_steps",
+            "lb": 20.0,
+            "ub": 20.0,
+            "label": "all"
+        }
+    ],
+    "config": {
+      "tolerance": 1e-8,
+    #   "queue_timeout": 1,
+    #   "number_of_processes": 1,
+    #   "wait_timeout": 0,
+    #   "wait_action_timeout": 0.05,
+    #   "solver": "dreal",
+    #   "num_steps": 2,
+    #   "step_size": 1,
+    #   "num_initial_boxes": 1,
+    #   "save_smtlib": False,
+    #   "dreal_precision": 0.001,
+    #   "dreal_log_level": "off",
+    #   "constraint_noise": 0,
+    #   "taylor_series_order": 0,
+    #   "initial_state_tolerance": 0,
+    #   "dreal_mcts": True,
+    #   "substitute_subformulas": True,
+    #   "use_compartmental_constraints": True,
+    #   "normalize": True,
+    #   "simplify_query": True,
+    #   "series_approximation_threshold": 0,
+    #   "profile": False
+    }
+}
 
 
 # %%
 # Make FUNMAN query
-
 data = json.dumps({
     'model': model,
     'request': request
@@ -137,142 +155,159 @@ if res.status_code == 200:
         print(f"Not done")
 
 # %%
-def plot_funman_result(result: dict, num_parameters_show: Optional[int] = None, point_id: Optional[int] = None) -> NoReturn:
+def plot_funman_result(result: dict, num_parameters_show: Optional[int] = None, parameters: Optional[list] = None, show_boxes: bool = True, show_points: bool = False, point_id: Optional[int] = None) -> NoReturn:
 
-    query_id = result["id"]
+    if len(result["parameter_space"]) != 0:
 
-    # Model parameters and "structure" parameters
-    parameters = list(set([p["id"] for p in result["model"]["petrinet"]["semantics"]["ode"]["parameters"]]))
-    struct_parameters = list(set([p["name"] for p in result["request"]["structure_parameters"]]))
-    num_parameters = len(parameters)
-    
-    # How many parameters to show
-    if (num_parameters_show == None) or (num_parameters_show > num_parameters):
-        num_parameters_show = num_parameters
-    
-    # Parameter request ranges (lower and upper bounds)
-    map_ranges = {p: {"lb": None, "ub": None, "value": None} for p in parameters}
-    
-    # Check inside request
-    for p in result["request"]["parameters"]:
-        for k in ["lb", "ub", "value"]:
-            if k in p.keys():
-                map_ranges[p["name"]][k] = p[k]
+        query_id = result["id"]
 
-    # Check inside model configuration
-    for p in result["model"]["petrinet"]["semantics"]["ode"]["parameters"]:
-        for k in ["lb", "ub", "value"]:
-            if k in p.keys():
-                map_ranges[p["id"]][k] = p[k]
-
-    # If parameter ranges are missing, assume +/- 10%
-    PARAM_RANGE_TOL = 0.10
-    for p in map_ranges.keys():
-        if map_ranges[p]["value"] != None:
-            if map_ranges[p]["lb"] == None:
-                map_ranges[p]["lb"] = (1.0 - PARAM_RANGE_TOL) * map_ranges[p]["value"]
-            if map_ranges[p]["ub"] == None:
-                map_ranges[p]["ub"] = (1.0 + PARAM_RANGE_TOL) * map_ranges[p]["value"]
+        # Model parameters and "structure" parameters
+        if parameters == None:
+            parameters = list(set([p["id"] for p in result["model"]["petrinet"]["semantics"]["ode"]["parameters"]]))
+        num_parameters = len(parameters)
+        struct_parameters = list(set([p["name"] for p in result["request"]["structure_parameters"]]))
         
-        if (map_ranges[p]["lb"] == map_ranges[p]["ub"]) and (map_ranges[p]["lb"] != None):
-            map_ranges[p]["value"] = map_ranges[p]["lb"]
-            map_ranges[p]["lb"] = (1.0 - PARAM_RANGE_TOL) * map_ranges[p]["value"]
-            map_ranges[p]["ub"] = (1.0 + PARAM_RANGE_TOL) * map_ranges[p]["value"]
+        # How many parameters to show
+        if (num_parameters_show == None) or (num_parameters_show > num_parameters):
+            num_parameters_show = num_parameters
+        
+        # Parameter request ranges (lower and upper bounds)
+        map_ranges = {p: {"lb": None, "ub": None, "value": None} for p in parameters}
+        
+        # Check inside request
+        for p in result["request"]["parameters"]:
+            for k in ("lb", "ub", "value"):
+                if (k in p.keys()) and (p["name"] in map_ranges.keys()):
+                    map_ranges[p["name"]][k] = p[k]
 
-    # Number of points
-    num_true_points = len(result["parameter_space"]["true_points"])
-    num_false_points = len(result["parameter_space"]["false_points"])
-    num_points = num_true_points + num_false_points
-    print(f"Number of points = {num_points}")
-    print(f"Number of true points = {num_true_points}")
-    print(f"Number of false points = {num_false_points}")
+        # Check inside model configuration
+        for p in result["model"]["petrinet"]["semantics"]["ode"]["parameters"]:
+            for k in ("lb", "ub", "value"):
+                if (k in p.keys()) and (p["name"] in map_ranges.keys()):
+                    map_ranges[p["id"]][k] = p[k]
 
-    # Color map
-    colors = mpl.cm.tab10(plt.Normalize(0, 10)(range(10)))
-    map_colors = {"true": colors[0], "false": colors[1]}
-
-    # Figure and axes
-    fig, axes = plt.subplots(nrows = num_parameters_show, ncols = num_parameters_show, figsize = (12, 12))
-    fig.suptitle(f"{result['model']['petrinet']['name']}")
-
-    for (i, j) in itertools.product(tqdm(range(num_parameters_show)), repeat = 2):
-
-            if i == j:
-
-                # Total distribution
-                r = [map_ranges[parameters[i]]["lb"], map_ranges[parameters[i]]["ub"]]
-                c = [map_colors["true"], map_colors["false"]]
-                x = [[point["values"][parameters[i]] for point in result["parameter_space"][k]] for k in ["true_points", "false_points"]]
-                __ = axes[i, j].hist(x, bins = 11, range = r, color = c, alpha = 1.0, stacked = True, align = "mid", density = False)
-
-            elif j < i:
-                
-                # True and false boxes
-                boxes = []
-                for k in ("true_boxes", "false_boxes"):
-
-                    c = map_colors[k.split("_")[0]]
-
-                    for box in result["parameter_space"][k]:
-    
-                        x = box["bounds"][parameters[j]]["lb"]
-                        y = box["bounds"][parameters[i]]["lb"]
-                        w = box["bounds"][parameters[j]]["ub"] - box["bounds"][parameters[j]]["lb"]
-                        h = box["bounds"][parameters[i]]["ub"] - box["bounds"][parameters[i]]["lb"]
-
-                        if (w > 0) and (h > 0):
-                            boxes.append(mpl.patches.Rectangle((x, y), w, h, facecolor = c, edgecolor = c, alpha = 0.2))
-                        elif (w + h) > 0:
-                            __ = axes[i, j].plot(
-                                [x, box["bounds"][parameters[j]]["ub"]], 
-                                [y, box["bounds"][parameters[i]]["ub"]], 
-                                color = c,
-                                alpha = 0.2,
-                                marker = None
-                            )
-                        else:
-                            pass
-
-                    pc = mpl.collections.PatchCollection(boxes, edgecolor = None)
-                    axes[i, j].add_collection(pc)
-
-                # True points
-                for k in ("true_points", "false_points"):
-
-                    c = map_colors[k.split("_")[0]]
-
-                    for point in result["parameter_space"][k]:
-                        x = point["values"][parameters[j]]
-                        y = point["values"][parameters[i]]
-                        __ = axes[i, j].plot(x, y, '.', color = c, alpha = 0.2, linestyle = None)
-                
-                # Axis ranges
-                if map_ranges[parameters[j]]["lb"] < map_ranges[parameters[j]]["ub"]:
-                    __ = plt.setp(axes[i, j], xlim = (map_ranges[parameters[j]]["lb"], map_ranges[parameters[j]]["ub"]))
-                if map_ranges[parameters[i]]["lb"] < map_ranges[parameters[i]]["ub"]:
-                    __ = plt.setp(axes[i, j], ylim = (map_ranges[parameters[i]]["lb"], map_ranges[parameters[i]]["ub"]))
+        # If parameter ranges are missing, assume +/- 10%
+        PARAM_RANGE_TOL = 0.10
+        for p in map_ranges.keys():
+            if map_ranges[p]["value"] != None:
+                if map_ranges[p]["lb"] == None:
+                    map_ranges[p]["lb"] = (1.0 - PARAM_RANGE_TOL) * map_ranges[p]["value"]
+                if map_ranges[p]["ub"] == None:
+                    map_ranges[p]["ub"] = (1.0 + PARAM_RANGE_TOL) * map_ranges[p]["value"]
             
-            else:
-                axes[i, j].remove()
+            if (map_ranges[p]["lb"] == map_ranges[p]["ub"]) and (map_ranges[p]["lb"] != None):
+                map_ranges[p]["value"] = map_ranges[p]["lb"]
+                map_ranges[p]["lb"] = (1.0 - PARAM_RANGE_TOL) * map_ranges[p]["value"]
+                map_ranges[p]["ub"] = (1.0 + PARAM_RANGE_TOL) * map_ranges[p]["value"]
 
-            axes[i, j].tick_params(axis = 'x', labelrotation = 45)
-            if (j == 0) and (i > 0):
-                __ = plt.setp(axes[i, j], ylabel = parameters[i])
-            else:
-                axes[i, j].tick_params(axis = 'y', labelleft = False)
+        # Number of points
+        num_true_points = 0
+        num_false_points = 0
+        if "true_points" in result["parameter_space"].keys():
+            num_true_points = len(result["parameter_space"]["true_points"])
+        if "false_points" in result["parameter_space"].keys():
+            num_false_points = len(result["parameter_space"]["false_points"])
+        num_points = num_true_points + num_false_points
+        print(f"Number of points = {num_points}")
+        print(f"Number of true points = {num_true_points}")
+        print(f"Number of false points = {num_false_points}")
 
-            if (i == (num_parameters_show - 1)):
-                __ = plt.setp(axes[i, j], xlabel = parameters[j])
-            else:
-                axes[i, j].tick_params(axis = 'x', labelbottom = False)
+        # Color map
+        colors = mpl.cm.tab10(plt.Normalize(0, 10)(range(10)))
+        map_colors = {"true": colors[0], "false": colors[1]}
 
-            if (i == j):
-                axes[i, j].tick_params(axis = 'y', left = False, right = True, labelright = True)
-                # __ = plt.setp(axes[i, j], ylabel = f"H")
-                axes[i, j].yaxis.set_label_position("right")
+        # Figure and axes
+        fig, axes = plt.subplots(nrows = num_parameters_show, ncols = num_parameters_show, figsize = (12, 12))
+        fig.suptitle(f"{result['model']['petrinet']['name']}")
+
+        for (i, j) in itertools.product(tqdm(range(num_parameters_show)), repeat = 2):
+
+                if i == j:
+
+                    # Total distribution
+                    r = [map_ranges[parameters[i]]["lb"], map_ranges[parameters[i]]["ub"]]
+                    c = [map_colors["true"], map_colors["false"]]
+                    if "false_points" not in result["parameter_space"].keys():
+                        c = c[0]
+                    if "true_points" not in result["parameter_space"].keys():
+                        c = c[1]
+                    x = [[point["values"][parameters[i]] for point in result["parameter_space"][k]] for k in ["true_points", "false_points"] if k in result["parameter_space"].keys()]
+                    __ = axes[i, j].hist(x, bins = 11, range = r, color = c, alpha = 1.0, stacked = True, align = "mid", density = False)
+
+                elif j < i:
+                    
+                    # True and false boxes
+                    if show_boxes == True:
+                        for k in ("true_boxes", "false_boxes"):
+                            boxes = []
+                            c = map_colors[k.split("_")[0]]
+                            if k in result["parameter_space"].keys():
+                                for box in result["parameter_space"][k]:
+                
+                                    x = box["bounds"][parameters[j]]["lb"]
+                                    y = box["bounds"][parameters[i]]["lb"]
+                                    w = box["bounds"][parameters[j]]["ub"] - box["bounds"][parameters[j]]["lb"]
+                                    h = box["bounds"][parameters[i]]["ub"] - box["bounds"][parameters[i]]["lb"]
+
+                                    if (w > 0) and (h > 0):
+                                        boxes.append(mpl.patches.Rectangle((x, y), w, h, fill = False, facecolor = None, edgecolor = 'black', alpha = 0.1))
+                                        # boxes.append(mpl.patches.Polygon([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], color = c, alpha = 0.1))
+                                    elif ((w == 0) or (h == 0)) and (w + h) > 0:
+                                        __ = axes[i, j].plot(
+                                            [x, box["bounds"][parameters[j]]["ub"]], 
+                                            [y, box["bounds"][parameters[i]]["ub"]], 
+                                            color = c,
+                                            alpha = 0.2,
+                                            marker = None
+                                        )
+                                    else:
+                                        pass
+
+                                pc = mpl.collections.PatchCollection(boxes, facecolor = c, edgecolor = 'k', alpha = 0.2)
+                                axes[i, j].add_collection(pc)
+
+                    # True points
+                    if show_points == True:
+                        for k in ("true_points", "false_points"):
+
+                            c = map_colors[k.split("_")[0]]
+
+                            if k in result["parameter_space"].keys():
+                                for point in result["parameter_space"][k]:
+                                    x = point["values"][parameters[j]]
+                                    y = point["values"][parameters[i]]
+                                    __ = axes[i, j].plot(x, y, '.', color = c, alpha = 0.2, linestyle = None)
+                        
+                    # Axis ranges
+                    if map_ranges[parameters[j]]["lb"] < map_ranges[parameters[j]]["ub"]:
+                        __ = plt.setp(axes[i, j], xlim = (map_ranges[parameters[j]]["lb"], map_ranges[parameters[j]]["ub"]))
+                    if map_ranges[parameters[i]]["lb"] < map_ranges[parameters[i]]["ub"]:
+                        __ = plt.setp(axes[i, j], ylim = (map_ranges[parameters[i]]["lb"], map_ranges[parameters[i]]["ub"]))
+                
+                else:
+                    axes[i, j].remove()
+
+                axes[i, j].tick_params(axis = 'x', labelrotation = 45)
+                if (j == 0) and (i > 0):
+                    __ = plt.setp(axes[i, j], ylabel = parameters[i])
+                else:
+                    axes[i, j].tick_params(axis = 'y', labelleft = False)
+
+                if (i == (num_parameters_show - 1)):
+                    __ = plt.setp(axes[i, j], xlabel = parameters[j])
+                else:
+                    axes[i, j].tick_params(axis = 'x', labelbottom = False)
+
+                if (i == j):
+                    axes[i, j].tick_params(axis = 'y', left = False, right = True, labelright = True)
+                    # __ = plt.setp(axes[i, j], ylabel = f"H")
+                    axes[i, j].yaxis.set_label_position("right")
+
+    else:
+        print(f"No result")
 
 # %%
-# plot_funman_result(result)
+plot_funman_result(result)
 
 # %%[markdown]
 # # 2. Explore Example Output
@@ -431,11 +466,55 @@ with open(p, 'r') as f:
     __ = [print(f'Number of {" ".join(k.split("_"))}:\t{len(result["parameter_space"][k])}') for k in ("true_points", "true_boxes", "false_points", "false_boxes")]
     print("\n")
 
+# %%
+request = result["request"]
+model = result["model"]["petrinet"]
+model["header"] = {k: v for k, v in model.items() if k in ("name", "schema", "schema_name", "description", "model_version")}
+model["header"]["schema"] = model["schema_"]
+
+
+with open("./model.json", "w") as f:
+    json.dump(model, f, indent = 2)
+
+data = {
+    'model': model,
+    'request': request
+}
+with open("./payload.json", "w") as f:
+    json.dump(data, f, indent = 2)
+
 
 # %%
-plot_funman_result(result, num_parameters_show = None)
-fig = plt.clf()
-fig.savefig(f"./results/milestone_12month/{query_id}.png")
+# plot_funman_result(result, num_parameters_show = None)
+plot_funman_result(result, parameters = ["eps_m", "c_m"], show_boxes = True, show_points = False)
+# fig = plt.clf()
+# fig.savefig(f"./results/milestone_12month/{query_id}.png")
+
+# %%
+# Check if every true-box vertices is in the true-point list, ditto for false boxes
+# Check if every true point is a true-box vertex, ditto for false points
+
+
+# List of parameters in result
+parameters = [p["id"] for p in result["model"]["petrinet"]["semantics"]["ode"]["parameters"]]
+parameters += [p["name"] for p in result["request"]["structure_parameters"]]
+
+# Hash the parameter points
+# True/False points
+quantity_hash = {
+    t: {
+        tuple([q["values"][p] for p in parameters]): None
+        for q in quantities
+    }
+    for t, quantities in result["parameter_space"].items() if t in ("true_points", "false_points")
+}
+
+# # True/False box vertices
+# for t, quantities in result["parameter_space"].items():
+#     if t in ("true_boxes", "false_boxes"):
+#         quantity_hash[t] = {
+#         }
+
 
 # %%
 # Collate the trajectories into a dataframe
@@ -443,8 +522,13 @@ def get_FUNMAN_trajectories(result: dict) -> pd.DataFrame:
 
     result_df = pd.DataFrame()
 
-    num_true_points = len(result["parameter_space"]["true_points"])
-    num_false_points = len(result["parameter_space"]["false_points"])
+    num_true_points = 0
+    num_false_points = 0
+    if "true_points" in result["parameter_space"].keys():
+        num_true_points = len(result["parameter_space"]["true_points"])
+    if "false_points" in result["parameter_space"].keys():
+        num_false_points = len(result["parameter_space"]["false_points"])
+    num_points = num_true_points + num_false_points
     num_points = num_true_points + num_false_points
     print(f"Number of points = {num_points}")
     print(f"Number of true points = {num_true_points}")
@@ -459,7 +543,12 @@ def get_FUNMAN_trajectories(result: dict) -> pd.DataFrame:
         struct_parameters = set([p["name"] for p in result["request"]["structure_parameters"]])
 
         # Collect trajectories per true point
-        for i, point in enumerate(result["parameter_space"]["true_points"] + result["parameter_space"]["false_points"]):
+        points = []
+        if "true_points" in result["parameter_space"].keys():
+            points += result["parameter_space"]["true_points"]
+        if "false_points" in result["parameter_space"].keys():
+            points += result["parameter_space"]["false_points"]
+        for i, point in enumerate(points):
 
             # Get list of state variables and time points
             x = set(list(point["values"].keys())) - parameters - struct_parameters
@@ -506,6 +595,8 @@ def get_FUNMAN_trajectories(result: dict) -> pd.DataFrame:
 # %%
 result_df = get_FUNMAN_trajectories(result)
 result_df
+
+result_df.to_csv("./result_df.csv", index = False)
 
 # %%
 result_df.describe()
