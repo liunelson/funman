@@ -161,6 +161,11 @@ def process_funman(result: dict) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFra
 (df_boxes, df_points, df_trajs) = process_funman(result)
 
 # %%
+df_boxes.to_csv("./results/example_simple/result_df_boxes.tsv", sep = "\t", index = False)
+df_points.to_csv("./results/example_simple/result_df_points.tsv", sep = "\t", index = False)
+df_trajs.to_csv("./results/example_simple/result_df_trajs.tsv", sep = "\t", index = False)
+
+# %%
 fig, axes = plt.subplots(1, 2, figsize = (12, 6))
 colors = mpl.cm.tab10(plt.Normalize(0, 10)(range(10)))
 map_colors = {"true": colors[0], "false": colors[1]}
